@@ -31,6 +31,28 @@ def convert_midi_to_events(file_path):
     print(f"Processed {len(events)} note events from {file_path}")
     return events
 
+def convert_event_to_midi(events, file_path):
+    """
+    Converts a list of MIDI events into a MIDI file and saves it to the specified path.
+    Each event is expected to be a dictionary with 'start_time', 'end_time', 'note', and 'velocity'.
+    """
+    midi = mido.MidiFile()
+    track = mido.MidiTrack()
+    midi.tracks.append(track)
+
+    for event in events:
+        start_time = int(event['start_time'])
+        end_time = int(event['end_time'])
+        note = event['note']
+        velocity = event['velocity']
+
+        # Add note_on message
+        track.append(mido.Message('note_on', note=note, velocity=velocity, time=start_time))
+        # Add note_off message
+        track.append(mido.Message('note_off', note=note, velocity=velocity, time=end_time - start_time))
+
+    midi.save(file_path)
+    print(f"Saved MIDI file with {len(events)} events to {file_path}")
 def get_midi_bpm(file_path):
         """
         Returns the tempo (BPM) of the first tempo event in the MIDI file.
@@ -79,4 +101,11 @@ def convert_events_to_midi_function(events):
             if event['start_time'] <= t <= event['end_time']:
                 notes.append(event['note'])
         return notes
-    return midi_function
+    return midi_function 
+
+def convert_midi_to_midi_function(file_path):
+    """
+    Converts a MIDI file to a function that returns active notes at a given time.
+    """
+    events = convert_midi_to_events(file_path)
+    return convert_events_to_midi_function(events) 

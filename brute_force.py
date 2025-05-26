@@ -1,6 +1,7 @@
 import numpy as np 
 import pandas as pd
-from midi_util import convert_midi_to_events,get_midi_bpm,normalize_midi_event,convert_events_to_midi_function
+from midi_util import convert_midi_to_events,get_midi_bpm,normalize_midi_event,convert_events_to_midi_function,convert_event_to_midi
+import matplotlib.pyplot as plt
 def load_reference_contour(file_path):
     """
     Load the reference contour from a CSV file.
@@ -74,17 +75,33 @@ def compute_similarity_metric(reference_contour, candidate_midi_contour):
     ncc = compute_normalized_cross_correlation(reference_contour, candidate_midi_contour) 
     return ncc
 
+def convert_search_record_to_dataframe(search_record): 
+    """
+    Convert the search record to a pandas DataFrame for easier analysis and visualization.
+    Parameters:
+    search_record (list of tuples): Each tuple contains (vertical_displacement, horizontal_displacement, beat_per_minutes, similarity).
+    Returns:
+    pd.DataFrame: A DataFrame with columns for vertical displacement, horizontal displacement, BPM, and similarity.
+    """
+    df = pd.DataFrame(search_record, columns=['vertical_displacement', 'horizontal_displacement', 'beat_per_minutes', 'similarity'])
+    return df
 
-def brute_force_search(reference_contour,time,midi_events,search_space): 
+def brute_force_search(reference_contour, time, midi_events, search_space, search_record): 
     best_similarity = float('-inf')
     best_parameters = None
+    total = len(search_space['vertical']) * len(search_space['horizontal']) * len(search_space['beat_per_minutes'])
+    count = 0
     for vertical_displacement in search_space['vertical']:
         for horizontal_displacement in search_space['horizontal']:
-            for beat_per_minutes in search_space['beat_per_minutes']:
+          for beat_per_minutes in search_space['beat_per_minutes']:
+                count += 1
+                print(f"Processing {count}/{total} (Vertical: {vertical_displacement}, Horizontal: {horizontal_displacement}, BPM: {beat_per_minutes})")
                 transformed_midi_events = transform_midi_events(midi_events, vertical_displacement, horizontal_displacement, beat_per_minutes)
-                transformed_midi_contour = convert_events_to_midi_contour(transformed_midi_events,time)
+                transformed_midi_contour = convert_events_to_midi_contour(transformed_midi_events, time)
                 similarity = compute_similarity_metric(reference_contour, transformed_midi_contour)
-                print(f"Vertical: {vertical_displacement}, Horizontal: {horizontal_displacement}, BPM: {beat_per_minutes}, similarity: {similarity}")
+                print(f"Similarity: {similarity}")
+                # Record the search parameters and similarity
+                search_record.append((vertical_displacement, horizontal_displacement, beat_per_minutes, similarity))
                 if similarity > best_similarity:
                     improvement = similarity - best_similarity
                     best_similarity = similarity
@@ -93,26 +110,35 @@ def brute_force_search(reference_contour,time,midi_events,search_space):
     return best_parameters, best_similarity
 
 
-
-if __name__ == "__main__":
+if __name__ == "__main__": 
     reference_contour_path = "signal_a_contour_tony.csv" 
     reference_contour, time = load_reference_contour(reference_contour_path) 
     print("Loaded reference contour:", reference_contour, reference_contour.shape)
     print("Loaded time values:", time, time.shape)
     
-    # plot_pitch_contour(time, reference_contour, start=0, end=10000) 
+    # # plot_pitch_contour(time, reference_contour, start=0, end=10000) 
 
     midi_file_path = "signal_b.mid"
     midi_events = convert_midi_to_events(midi_file_path) 
+    print(midi_events)
     midi_bpm = get_midi_bpm(midi_file_path)
     normalized_midi_events = normalize_midi_event(midi_events,midi_bpm)
     # midi_key_signature = get_midi_key_signature(midi_file_path) 
     search_space = {
         'vertical': np.array([0]),
-        'horizontal': np.arange(-10, 10.5, 0.5),  
+        'horizontal': np.arange(-5, 5, 1),  
         'beat_per_minutes':[midi_bpm + offset for offset in np.arange(-20, 20.5, 0.5)]
     }
-    best_parameters, best_similarity = brute_force_search(reference_contour, time, normalized_midi_events, search_space)
+    search_record = []
+    best_parameters, best_similarity = brute_force_search(reference_contour, time, normalized_midi_events, search_space, search_record)
     print("Best parameters:", best_parameters)
     print("Best cost:", best_similarity)
     
+    df = convert_search_record_to_dataframe(search_record)  
+    df.to_csv("search_results.csv", index=False)
+    print("apply best parameters to midi and save as midi file")
+    vertical_displacement, horizontal_displacement, beat_per_minutes = best_parameters
+    transformed_midi_events = transform_midi_events(normalized_midi_events, vertical_displacement, horizontal_displacement, beat_per_minutes) 
+    saved_midi_file_path = "optimized_signal_b.mid" 
+    convert_event_to_midi(transformed_midi_events, saved_midi_file_path)
+    print(f"Transformed MIDI events saved to {saved_midi_file_path}")
