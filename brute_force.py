@@ -126,9 +126,9 @@ if __name__ == "__main__":
     # midi_key_signature = get_midi_key_signature(midi_file_path) 
     search_space = {
         'vertical': np.array([0]),
-        'horizontal': np.arange(-5, 5, 1),  
-        'beat_per_minutes':[midi_bpm + offset for offset in np.arange(-20, 20.5, 0.5)]
-    }
+        'horizontal': np.arange(-0*1000, 5*1000, 1000),  
+        # 'beat_per_minutes':[midi_bpm + offset for offset in np.arange(-20, 20.5, 0.5)]
+        'beat_per_minutes': np.arange(100,200,2)}
     search_record = []
     best_parameters, best_similarity = brute_force_search(reference_contour, time, normalized_midi_events, search_space, search_record)
     print("Best parameters:", best_parameters)
