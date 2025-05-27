@@ -67,6 +67,7 @@ def compute_normalized_cross_correlation(contour_a, contour_b):
     binarize = lambda contour: np.where(contour > 0, 1, 0)
     contour_a = binarize(contour_a)
     contour_b = binarize(contour_b)
+    print("shape,", contour_a.shape, contour_b.shape)
     dot_product = np.dot(contour_a, contour_b) 
     norm_a = np.linalg.norm(contour_a) 
     norm_b = np.linalg.norm(contour_b) 
@@ -115,16 +116,11 @@ def brute_force_search(reference_contour, time, midi_events, search_space, searc
 
 
 if __name__ == "__main__": 
-    reference_contour_path = "signal_a_contour_tony.csv" 
+    reference_contour_path = "vocals_tony.csv" 
     reference_contour, time = load_reference_contour(reference_contour_path) 
     print("Loaded reference contour:", reference_contour, reference_contour.shape)
     print("Loaded time values:", time, time.shape)
-    
-    # # plot_pitch_contour(time, reference_contour, start=0, end=10000) 
-
-    # midi_file_path = "signal_b_24.mid"
-    # midi_file_path = "signal_b_24_left_1_bar.mid"
-    midi_file_path ="006_EP_030 BIRDS OF A FEATHER (Good) 24s Left1Bar02.mid"
+    midi_file_path = "annotation.mid"
     midi_events = convert_midi_to_events(midi_file_path) 
     print(midi_events)
     midi_bpm = get_midi_bpm(midi_file_path)
