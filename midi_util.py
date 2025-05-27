@@ -31,28 +31,38 @@ def convert_midi_to_events(file_path):
     print(f"Processed {len(events)} note events from {file_path}")
     return events
 
-def convert_event_to_midi(events, file_path):
+def convert_event_to_midi(events, file_path, tempo=500000):
     """
     Converts a list of MIDI events into a MIDI file and saves it to the specified path.
     Each event is expected to be a dictionary with 'start_time', 'end_time', 'note', and 'velocity'.
+    Optionally sets the tempo (default 500000 microseconds per beat, i.e., 120 BPM).
     """
     midi = mido.MidiFile()
     track = mido.MidiTrack()
     midi.tracks.append(track)
 
-    for event in events:
+    # Set tempo at the beginning
+    track.append(mido.MetaMessage('set_tempo', tempo=tempo, time=0))
+
+    # Sort events by start_time for correct delta times
+    events_sorted = sorted(events, key=lambda e: e['start_time'])
+    last_time = 0
+
+    for event in events_sorted:
         start_time = int(event['start_time'])
         end_time = int(event['end_time'])
         note = event['note']
         velocity = event['velocity']
 
-        # Add note_on message
-        track.append(mido.Message('note_on', note=note, velocity=velocity, time=start_time))
-        # Add note_off message
+        # Delta time from last event
+        delta_start = start_time - last_time
+        track.append(mido.Message('note_on', note=note, velocity=velocity, time=delta_start))
         track.append(mido.Message('note_off', note=note, velocity=velocity, time=end_time - start_time))
+        last_time = end_time
 
     midi.save(file_path)
     print(f"Saved MIDI file with {len(events)} events to {file_path}")
+    
 def get_midi_bpm(file_path):
         """
         Returns the tempo (BPM) of the first tempo event in the MIDI file.

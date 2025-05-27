@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from midi_util import convert_midi_to_events,get_midi_bpm,normalize_midi_event,convert_events_to_midi_function,convert_event_to_midi
 import matplotlib.pyplot as plt
+import mido
 def load_reference_contour(file_path):
     """
     Load the reference contour from a CSV file.
@@ -63,6 +64,9 @@ def compute_normalized_cross_correlation(contour_a, contour_b):
     Returns:
     float: The normalized cross-correlation value.  between -1 and 1
     """
+    binarize = lambda contour: np.where(contour > 0, 1, 0)
+    contour_a = binarize(contour_a)
+    contour_b = binarize(contour_b)
     dot_product = np.dot(contour_a, contour_b) 
     norm_a = np.linalg.norm(contour_a) 
     norm_b = np.linalg.norm(contour_b) 
@@ -118,27 +122,32 @@ if __name__ == "__main__":
     
     # # plot_pitch_contour(time, reference_contour, start=0, end=10000) 
 
-    midi_file_path = "signal_b.mid"
+    # midi_file_path = "signal_b_24.mid"
+    # midi_file_path = "signal_b_24_left_1_bar.mid"
+    midi_file_path ="006_EP_030 BIRDS OF A FEATHER (Good) 24s Left1Bar02.mid"
     midi_events = convert_midi_to_events(midi_file_path) 
     print(midi_events)
     midi_bpm = get_midi_bpm(midi_file_path)
     normalized_midi_events = normalize_midi_event(midi_events,midi_bpm)
     # midi_key_signature = get_midi_key_signature(midi_file_path) 
+
     search_space = {
         'vertical': np.array([0]),
-        'horizontal': np.arange(-0*1000, 5*1000, 1000),  
-        # 'beat_per_minutes':[midi_bpm + offset for offset in np.arange(-20, 20.5, 0.5)]
-        'beat_per_minutes': np.arange(100,200,2)}
+        'horizontal': np.arange(-0*1000, 5*1000, 100),  
+        'beat_per_minutes':[midi_bpm + offset for offset in np.arange(-50, 50, 1)]
+    }
     search_record = []
     best_parameters, best_similarity = brute_force_search(reference_contour, time, normalized_midi_events, search_space, search_record)
     print("Best parameters:", best_parameters)
     print("Best cost:", best_similarity)
-    
     df = convert_search_record_to_dataframe(search_record)  
     df.to_csv("search_results.csv", index=False)
     print("apply best parameters to midi and save as midi file")
     vertical_displacement, horizontal_displacement, beat_per_minutes = best_parameters
     transformed_midi_events = transform_midi_events(normalized_midi_events, vertical_displacement, horizontal_displacement, beat_per_minutes) 
     saved_midi_file_path = "optimized_signal_b.mid" 
-    convert_event_to_midi(transformed_midi_events, saved_midi_file_path)
+    best_tempo =  mido.bpm2tempo(beat_per_minutes)
+    convert_event_to_midi(transformed_midi_events, saved_midi_file_path, best_tempo) 
     print(f"Transformed MIDI events saved to {saved_midi_file_path}")
+    # Convert BPM to MIDI tempo format 
+# convert_event_to_midi(transformed_midi_events, "transformed_signal_b.mid",tempo)  # Save the transformed MIDI events to a file
