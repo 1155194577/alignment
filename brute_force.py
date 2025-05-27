@@ -29,7 +29,7 @@ def transform_midi_events(midi_events, vertical_displacement, horizontal_displac
             list of dict: Transformed MIDI events.
         """
         # Assume original BPM is stored in each event or passed separately; here we use 120 as default
-        tempo_scale = beat_per_minutes
+        tempo_scale = 1 / beat_per_minutes
 
         transformed_events = []
         for event in midi_events:

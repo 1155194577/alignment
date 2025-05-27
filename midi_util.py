@@ -95,8 +95,8 @@ def normalize_midi_event(events, bpm):
     normalized_events = []
     for event in events:
         normalized_event = event.copy()
-        normalized_event['start_time'] = event['start_time'] * (1 / bpm)
-        normalized_event['end_time'] = event['end_time'] * (1 / bpm)
+        normalized_event['start_time'] = event['start_time'] * (bpm)
+        normalized_event['end_time'] = event['end_time'] * (bpm)
         normalized_events.append(normalized_event)
     return normalized_events
 
