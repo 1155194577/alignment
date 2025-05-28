@@ -4,12 +4,14 @@ from midi_util import convert_midi_to_events,get_midi_bpm,normalize_midi_event,c
 import matplotlib.pyplot as plt
 import mido
 def load_reference_contour(file_path):
-    """
-    Load the reference contour from a CSV file.
-    Parameters:
-    file_path (str): The path to the CSV file.
+    """Load the reference contour from a CSV file.
+
+    Args:
+        file_path (str): The path to the CSV file.
+
     Returns:
-    a tuple: A tuple containing the reference contour (np.array) and the corresponding time values (np.array).
+        tuple[np.ndarray, np.ndarray]: A tuple containing the reference pitch contour
+                                       and the corresponding time values (in milliseconds).
     """
     df = pd.read_csv(file_path)
     time = df['time'].to_numpy()
@@ -39,7 +41,18 @@ def transform_midi_events(midi_events, vertical_displacement, horizontal_displac
         transformed_events.append(new_event)
     return transformed_events
 
-def convert_events_to_midi_contour(events,time):  
+def convert_events_to_midi_contour(events, time):
+    """Converts MIDI events to a MIDI contour based on specified time points.
+
+    Args:
+        events (list[dict]): A list of MIDI events, where each event is a dictionary
+                             with 'start_time', 'end_time', and 'note'.
+        time (np.ndarray): An array of time points (in milliseconds) at which to sample the MIDI contour.
+
+    Returns:
+        np.ndarray: A MIDI contour, represented as an array of note numbers at each time point.
+                    If no note is active at a time point, it's represented by 0.
+    """
     midi_function = convert_events_to_midi_function(events)
     midi_contour = []
     for time_value in time:
@@ -53,14 +66,17 @@ def convert_events_to_midi_contour(events,time):
     return np.array(midi_contour)
 
 def compute_normalized_cross_correlation(contour_a, contour_b, binarize=True):
-    """
-    Compute the normalized cross-correlation between two contours. 
-    Parameters: 
-    contour_a (np array): The first contour. 
-    contour_b (np array): The second contour. 
-    binarize (bool): Whether to binarize contours before comparison (default: True)
+    """Compute the normalized cross-correlation between two contours.
+
+    Args:
+        contour_a (np.ndarray): The first contour.
+        contour_b (np.ndarray): The second contour.
+        binarize (bool, optional): Whether to binarize contours (values > 0 become 1, else 0)
+                                   before comparison. Defaults to True.
+
     Returns:
-    float: The normalized cross-correlation value.  between -1 and 1
+        float: The normalized cross-correlation value, ranging from -1 to 1.
+               Returns 0.0 if either contour has a norm of zero.
     """
     if binarize:
         binarize_fn = lambda contour: np.where(contour > 0, 1, 0)
@@ -75,8 +91,21 @@ def compute_normalized_cross_correlation(contour_a, contour_b, binarize=True):
     else: 
         return dot_product / (norm_a * norm_b) 
     
-def compute_similarity_metric(reference_contour, candidate_midi_contour, binarize=True): 
-    ncc = compute_normalized_cross_correlation(reference_contour, candidate_midi_contour, binarize) 
+def compute_similarity_metric(reference_contour, candidate_midi_contour, binarize=True):
+    """Computes a similarity metric between a reference contour and a candidate MIDI contour.
+
+    Currently, this uses normalized cross-correlation.
+
+    Args:
+        reference_contour (np.ndarray): The reference contour.
+        candidate_midi_contour (np.ndarray): The candidate MIDI contour.
+        binarize (bool, optional): Whether to binarize contours before comparison.
+                                   Defaults to True.
+
+    Returns:
+        float: The similarity score (normalized cross-correlation).
+    """
+    ncc = compute_normalized_cross_correlation(reference_contour, candidate_midi_contour, binarize)
     return ncc
 
 def convert_search_record_to_dataframe(search_record): 
@@ -90,7 +119,32 @@ def convert_search_record_to_dataframe(search_record):
     df = pd.DataFrame(search_record, columns=['vertical_displacement', 'horizontal_displacement', 'scaling_factor', 'similarity'])
     return df
 
-def brute_force_search(reference_contour, time, midi_events, search_space, search_record, binarize=True): 
+def brute_force_search(reference_contour, time, midi_events, search_space, search_record, binarize=True):
+    """Performs a brute-force search to find the optimal transformation parameters.
+
+    This function iterates through a defined search space of vertical (pitch),
+    horizontal (time), and scaling (tempo) transformations, applying them to
+    MIDI events and calculating the similarity to a reference contour.
+
+    Args:
+        reference_contour (np.ndarray): The reference pitch contour.
+        time (np.ndarray): Time values (in milliseconds) corresponding to the reference contour.
+        midi_events (list[dict]): The original MIDI events to be transformed.
+        search_space (dict): A dictionary defining the ranges for transformation parameters:
+            'vertical' (list[float]): Pitch shifts in semitones.
+            'horizontal' (list[float]): Time shifts in milliseconds.
+            'scaling_factor' (list[float]): Tempo scaling factors.
+        search_record (list): A list to store the parameters and similarity score for each search step.
+                              This list is modified in-place.
+        binarize (bool, optional): Whether to binarize contours during similarity computation.
+                                   Defaults to True.
+
+    Returns:
+        tuple[tuple, float]: A tuple containing:
+            - best_parameters (tuple): The (vertical_displacement, horizontal_displacement, scaling_factor)
+                                       that yielded the highest similarity.
+            - best_similarity (float): The highest similarity score found.
+    """
     best_similarity = float('-inf')
     best_parameters = None
     total = len(search_space['vertical']) * len(search_space['horizontal']) * len(search_space['scaling_factor'])

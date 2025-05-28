@@ -90,9 +90,13 @@ def get_midi_key_signature(file_path):
 
 def convert_events_to_midi_function(events): 
     def midi_function(t):
-        """
-        input : time in milliseconds
-        output : list of midi-note numbers active at that time
+        """Converts a time in milliseconds to a list of active MIDI note numbers.
+
+        Args:
+            t (float | int): The time in milliseconds.
+
+        Returns:
+            list[int]: A list of MIDI note numbers active at the given time.
         """
         notes = []
         for event in events:
