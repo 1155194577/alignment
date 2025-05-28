@@ -17,30 +17,27 @@ def load_reference_contour(file_path):
     pitches = df['value'].to_numpy()
     return pitches, time
 
-def transform_midi_events(midi_events, vertical_displacement, horizontal_displacement, beat_per_minutes):
-        """
-        Apply vertical (pitch), horizontal (timing), and tempo (BPM) transformations to MIDI events.
-        Args:
-            midi_events (list of dict): Each dict has 'start_time', 'end_time', 'note', 'velocity'. Assumed to be normalized.
-            vertical_displacement (float): Semitone shift for pitch.
-            horizontal_displacement (float): Time shift in milliseconds.
-            beat_per_minutes (float): Target BPM for tempo scaling.
-        Returns:
-            list of dict: Transformed MIDI events.
-        """
-        # Assume original BPM is stored in each event or passed separately; here we use 120 as default
-        tempo_scale = 1/ beat_per_minutes
-        # tempo_scale = beat_per_minutes
-        transformed_events = []
-        for event in midi_events:
-            new_event = event.copy()
-            # Pitch shift
-            new_event['note'] = event['note'] + vertical_displacement
-            # Time shift and tempo scaling
-            new_event['start_time'] = (event['start_time']*tempo_scale) + horizontal_displacement
-            new_event['end_time'] = (event['end_time'] *tempo_scale) + horizontal_displacement
-            transformed_events.append(new_event)
-        return transformed_events
+def transform_midi_events(midi_events, vertical_displacement, horizontal_displacement, scaling_factor):
+    """
+    Apply pitch shift, timing shift, and tempo scaling to MIDI events.
+    Args:
+        midi_events (list of dict): Each dict has 'start_time', 'end_time', 'note', 'velocity'.
+        vertical_displacement (float): Semitone shift for pitch.
+        horizontal_displacement (float): Time shift in milliseconds.
+        scaling_factor (float): Factor to scale timing (tempo adjustment).
+    Returns:
+        list of dict: Transformed MIDI events.
+    """
+    transformed_events = []
+    for event in midi_events:
+        new_event = event.copy()
+        # Apply pitch shift
+        new_event['note'] = event['note'] + vertical_displacement
+        # Apply time shift and tempo scaling
+        new_event['start_time'] = (event['start_time'] * scaling_factor) + horizontal_displacement
+        new_event['end_time'] = (event['end_time'] * scaling_factor) + horizontal_displacement
+        transformed_events.append(new_event)
+    return transformed_events
 
 def convert_events_to_midi_contour(events,time):  
     midi_function = convert_events_to_midi_function(events)
@@ -86,34 +83,34 @@ def convert_search_record_to_dataframe(search_record):
     """
     Convert the search record to a pandas DataFrame for easier analysis and visualization.
     Parameters:
-    search_record (list of tuples): Each tuple contains (vertical_displacement, horizontal_displacement, beat_per_minutes, similarity).
+    search_record (list of tuples): Each tuple contains (vertical_displacement, horizontal_displacement, scaling_factor, similarity).
     Returns:
-    pd.DataFrame: A DataFrame with columns for vertical displacement, horizontal displacement, BPM, and similarity.
+    pd.DataFrame: A DataFrame with columns for vertical displacement, horizontal displacement, scaling factor, and similarity.
     """
-    df = pd.DataFrame(search_record, columns=['vertical_displacement', 'horizontal_displacement', 'beat_per_minutes', 'similarity'])
+    df = pd.DataFrame(search_record, columns=['vertical_displacement', 'horizontal_displacement', 'scaling_factor', 'similarity'])
     return df
 
 def brute_force_search(reference_contour, time, midi_events, search_space, search_record, binarize=True): 
     best_similarity = float('-inf')
     best_parameters = None
-    total = len(search_space['vertical']) * len(search_space['horizontal']) * len(search_space['beat_per_minutes'])
+    total = len(search_space['vertical']) * len(search_space['horizontal']) * len(search_space['scaling_factor'])
     count = 0
     for vertical_displacement in search_space['vertical']:
         for horizontal_displacement in search_space['horizontal']:
-          for beat_per_minutes in search_space['beat_per_minutes']:
+          for scaling_factor in search_space['scaling_factor']:
                 count += 1
-                # print(f"Processing {count}/{total} (Vertical: {vertical_displacement}, Horizontal: {horizontal_displacement}, BPM: {beat_per_minutes})")
-                transformed_midi_events = transform_midi_events(midi_events, vertical_displacement, horizontal_displacement, beat_per_minutes)
+                # print(f"Processing {count}/{total} (Vertical: {vertical_displacement}, Horizontal: {horizontal_displacement}, Scaling factor: {scaling_factor})")
+                transformed_midi_events = transform_midi_events(midi_events, vertical_displacement, horizontal_displacement, scaling_factor)
                 transformed_midi_contour = convert_events_to_midi_contour(transformed_midi_events, time)
                 similarity = compute_similarity_metric(reference_contour, transformed_midi_contour, binarize=binarize)
                 # print(f"Similarity: {similarity}")
                 # Record the search parameters and similarity
-                search_record.append((vertical_displacement, horizontal_displacement, beat_per_minutes, similarity))
+                search_record.append((vertical_displacement, horizontal_displacement, scaling_factor, similarity))
                 if similarity > best_similarity:
                     improvement = similarity - best_similarity
                     best_similarity = similarity
-                    print("Best similarity updated!", best_similarity, "improvement:", improvement, "parameter", (vertical_displacement, horizontal_displacement, beat_per_minutes))
-                    best_parameters = (vertical_displacement, horizontal_displacement, beat_per_minutes)
+                    print("Best similarity updated!", best_similarity, "improvement:", improvement, "parameter", (vertical_displacement, horizontal_displacement, scaling_factor))
+                    best_parameters = (vertical_displacement, horizontal_displacement, scaling_factor)
     return best_parameters, best_similarity
 
 
@@ -131,25 +128,36 @@ if __name__ == "__main__":
     midi_events = convert_midi_to_events(midi_file_path) 
     print(midi_events)
     midi_bpm = get_midi_bpm(midi_file_path)
-    normalized_midi_events = normalize_midi_event(midi_events,midi_bpm)
+    # normalized_midi_events = normalize_midi_event(midi_events,midi_bpm)
     # midi_key_signature = get_midi_key_signature(midi_file_path) 
 
+    midi_bpm_range = [midi_bpm + offset for offset in np.arange(-50, 51, 1)]
+    scaling_factor_range1 = np.array([midi_bpm/x for x in midi_bpm_range])
+    scaling_factor_range2 = np.array([x/midi_bpm for x in midi_bpm_range])
+    # Choose which scaling factor range to use (union of both)
+    scaling_factor_range = np.unique(np.concatenate([scaling_factor_range1, scaling_factor_range2]))
+    print(scaling_factor_range)
     search_space = {
         'vertical': np.array([0]),
         'horizontal': np.arange(-0*1000, 5*1000, 100),  
-        'beat_per_minutes':[midi_bpm + offset for offset in np.arange(-50, 50, 1)]
+        'scaling_factor': scaling_factor_range, 
     }
     search_record = []
-    best_parameters, best_similarity = brute_force_search(reference_contour, time, normalized_midi_events, search_space, search_record, binarize=BINARIZE)
+    best_parameters, best_similarity = brute_force_search(reference_contour, time, midi_events, search_space, search_record, binarize=BINARIZE)
     print("Best parameters:", best_parameters)
     print("Best cost:", best_similarity)
     df = convert_search_record_to_dataframe(search_record)  
     df.to_csv("search_results.csv", index=False)
     print("apply best parameters to midi and save as midi file")
-    vertical_displacement, horizontal_displacement, beat_per_minutes = best_parameters
-    transformed_midi_events = transform_midi_events(normalized_midi_events, vertical_displacement, horizontal_displacement, beat_per_minutes) 
+    vertical_displacement, horizontal_displacement, scaling_factor = best_parameters
+    transformed_midi_events = transform_midi_events(midi_events, vertical_displacement, horizontal_displacement, scaling_factor) 
     saved_midi_file_name = "optimized_signal_b.mid" 
-    saved_midi_file_path = f"{source_folder}/{saved_midi_file_name}"
+    saved_midi_file_path = f"{source_folder}/{saved_midi_file_name}" 
+     
+    ## convert scaling_factor to bpm 
+    beat_per_minutes = midi_bpm / scaling_factor
+    print(f"Best BPM: {beat_per_minutes}, scaling factor: {scaling_factor}")
+    ## convert bpm to tempo 
     best_tempo =  mido.bpm2tempo(beat_per_minutes)
     convert_event_to_midi(transformed_midi_events, saved_midi_file_path, best_tempo) 
     print(f"Transformed MIDI events saved to {saved_midi_file_path}")

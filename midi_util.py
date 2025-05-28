@@ -88,18 +88,6 @@ def get_midi_key_signature(file_path):
                 return msg.key
     return 'C major'  # Default key signature
 
-def normalize_midi_event(events, bpm):
-    """
-    Normalizes the MIDI events based on the BPM.
-    """
-    normalized_events = []
-    for event in events:
-        normalized_event = event.copy()
-        normalized_event['start_time'] = event['start_time'] * (bpm)
-        normalized_event['end_time'] = event['end_time'] * (bpm)
-        normalized_events.append(normalized_event)
-    return normalized_events
-
 def convert_events_to_midi_function(events): 
     def midi_function(t):
         """
@@ -119,3 +107,16 @@ def convert_midi_to_midi_function(file_path):
     """
     events = convert_midi_to_events(file_path)
     return convert_events_to_midi_function(events) 
+
+# deprecated
+# def normalize_midi_event(events, bpm):
+#     """
+#     Normalizes the MIDI events based on the BPM.
+#     """
+#     normalized_events = []
+#     for event in events:
+#         normalized_event = event.copy()
+#         normalized_event['start_time'] = event['start_time'] * (bpm)
+#         normalized_event['end_time'] = event['end_time'] * (bpm)
+#         normalized_events.append(normalized_event)
+#     return normalized_events
