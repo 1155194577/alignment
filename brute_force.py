@@ -29,8 +29,8 @@ def transform_midi_events(midi_events, vertical_displacement, horizontal_displac
             list of dict: Transformed MIDI events.
         """
         # Assume original BPM is stored in each event or passed separately; here we use 120 as default
-        tempo_scale = 1 / beat_per_minutes
-
+        tempo_scale = 1/ beat_per_minutes
+        # tempo_scale = beat_per_minutes
         transformed_events = []
         for event in midi_events:
             new_event = event.copy()
@@ -55,19 +55,21 @@ def convert_events_to_midi_contour(events,time):
             midi_contour.append(note_number)
     return np.array(midi_contour)
 
-def compute_normalized_cross_correlation(contour_a, contour_b):
+def compute_normalized_cross_correlation(contour_a, contour_b, binarize=True):
     """
     Compute the normalized cross-correlation between two contours. 
     Parameters: 
     contour_a (np array): The first contour. 
     contour_b (np array): The second contour. 
+    binarize (bool): Whether to binarize contours before comparison (default: True)
     Returns:
     float: The normalized cross-correlation value.  between -1 and 1
     """
-    binarize = lambda contour: np.where(contour > 0, 1, 0)
-    contour_a = binarize(contour_a)
-    contour_b = binarize(contour_b)
-    print("shape,", contour_a.shape, contour_b.shape)
+    if binarize:
+        binarize_fn = lambda contour: np.where(contour > 0, 1, 0)
+        contour_a = binarize_fn(contour_a)
+        contour_b = binarize_fn(contour_b)
+    # print("shape,", contour_a.shape, contour_b.shape)
     dot_product = np.dot(contour_a, contour_b) 
     norm_a = np.linalg.norm(contour_a) 
     norm_b = np.linalg.norm(contour_b) 
@@ -76,8 +78,8 @@ def compute_normalized_cross_correlation(contour_a, contour_b):
     else: 
         return dot_product / (norm_a * norm_b) 
     
-def compute_similarity_metric(reference_contour, candidate_midi_contour): 
-    ncc = compute_normalized_cross_correlation(reference_contour, candidate_midi_contour) 
+def compute_similarity_metric(reference_contour, candidate_midi_contour, binarize=True): 
+    ncc = compute_normalized_cross_correlation(reference_contour, candidate_midi_contour, binarize) 
     return ncc
 
 def convert_search_record_to_dataframe(search_record): 
@@ -91,7 +93,7 @@ def convert_search_record_to_dataframe(search_record):
     df = pd.DataFrame(search_record, columns=['vertical_displacement', 'horizontal_displacement', 'beat_per_minutes', 'similarity'])
     return df
 
-def brute_force_search(reference_contour, time, midi_events, search_space, search_record): 
+def brute_force_search(reference_contour, time, midi_events, search_space, search_record, binarize=True): 
     best_similarity = float('-inf')
     best_parameters = None
     total = len(search_space['vertical']) * len(search_space['horizontal']) * len(search_space['beat_per_minutes'])
@@ -100,27 +102,32 @@ def brute_force_search(reference_contour, time, midi_events, search_space, searc
         for horizontal_displacement in search_space['horizontal']:
           for beat_per_minutes in search_space['beat_per_minutes']:
                 count += 1
-                print(f"Processing {count}/{total} (Vertical: {vertical_displacement}, Horizontal: {horizontal_displacement}, BPM: {beat_per_minutes})")
+                # print(f"Processing {count}/{total} (Vertical: {vertical_displacement}, Horizontal: {horizontal_displacement}, BPM: {beat_per_minutes})")
                 transformed_midi_events = transform_midi_events(midi_events, vertical_displacement, horizontal_displacement, beat_per_minutes)
                 transformed_midi_contour = convert_events_to_midi_contour(transformed_midi_events, time)
-                similarity = compute_similarity_metric(reference_contour, transformed_midi_contour)
-                print(f"Similarity: {similarity}")
+                similarity = compute_similarity_metric(reference_contour, transformed_midi_contour, binarize=binarize)
+                # print(f"Similarity: {similarity}")
                 # Record the search parameters and similarity
                 search_record.append((vertical_displacement, horizontal_displacement, beat_per_minutes, similarity))
                 if similarity > best_similarity:
                     improvement = similarity - best_similarity
                     best_similarity = similarity
-                    print("Best similarity updated!", best_similarity, "improvement:", improvement)
+                    print("Best similarity updated!", best_similarity, "improvement:", improvement, "parameter", (vertical_displacement, horizontal_displacement, beat_per_minutes))
                     best_parameters = (vertical_displacement, horizontal_displacement, beat_per_minutes)
     return best_parameters, best_similarity
 
 
-if __name__ == "__main__": 
-    reference_contour_path = "vocals_tony.csv" 
+if __name__ == "__main__":
+    # Configuration flag for binarization
+    BINARIZE = False  # Set to False to disable contour binarization
+    source_folder = "./trimmed_24" 
+    reference_contour_name = "vocals_tony.csv" 
+    reference_contour_path = f"{source_folder}/{reference_contour_name}"
     reference_contour, time = load_reference_contour(reference_contour_path) 
     print("Loaded reference contour:", reference_contour, reference_contour.shape)
     print("Loaded time values:", time, time.shape)
-    midi_file_path = "annotation.mid"
+    midi_file_name = "annotation.mid"
+    midi_file_path = f"{source_folder}/{midi_file_name}"
     midi_events = convert_midi_to_events(midi_file_path) 
     print(midi_events)
     midi_bpm = get_midi_bpm(midi_file_path)
@@ -133,7 +140,7 @@ if __name__ == "__main__":
         'beat_per_minutes':[midi_bpm + offset for offset in np.arange(-50, 50, 1)]
     }
     search_record = []
-    best_parameters, best_similarity = brute_force_search(reference_contour, time, normalized_midi_events, search_space, search_record)
+    best_parameters, best_similarity = brute_force_search(reference_contour, time, normalized_midi_events, search_space, search_record, binarize=BINARIZE)
     print("Best parameters:", best_parameters)
     print("Best cost:", best_similarity)
     df = convert_search_record_to_dataframe(search_record)  
@@ -141,7 +148,8 @@ if __name__ == "__main__":
     print("apply best parameters to midi and save as midi file")
     vertical_displacement, horizontal_displacement, beat_per_minutes = best_parameters
     transformed_midi_events = transform_midi_events(normalized_midi_events, vertical_displacement, horizontal_displacement, beat_per_minutes) 
-    saved_midi_file_path = "optimized_signal_b.mid" 
+    saved_midi_file_name = "optimized_signal_b.mid" 
+    saved_midi_file_path = f"{source_folder}/{saved_midi_file_name}"
     best_tempo =  mido.bpm2tempo(beat_per_minutes)
     convert_event_to_midi(transformed_midi_events, saved_midi_file_path, best_tempo) 
     print(f"Transformed MIDI events saved to {saved_midi_file_path}")
