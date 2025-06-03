@@ -4,6 +4,10 @@ import mido
 from midi_processing import transform_note_event_interval,convert_note_event_intervals_to_midi_function,convert_midi_function_to_midi_contour,convert_midi_contour_to_pitch_contour
 from util import compute_similarity_metric
     
+# Helper function to validate events
+def has_negative_times(events):
+    """Check if any event has negative time values"""
+    return any(event['start_time'] < 0 or event['end_time'] < 0 for event in events)
 
 def brute_force_search(reference_contour, time, midi_events, search_space, search_record):
     best_similarity = float('-inf')
@@ -17,10 +21,13 @@ def brute_force_search(reference_contour, time, midi_events, search_space, searc
                 print(f"Processing {count}/{total} (Vertical: {vertical_displacement}, Horizontal: {horizontal_displacement}, Scaling factor: {scaling_factor})")
                 
                 transformed_note_event_interval = transform_note_event_interval(midi_events, vertical_displacement, horizontal_displacement, scaling_factor)
+                if has_negative_times(transformed_note_event_interval):
+                    print("Skipping due to negative times in transformed intervals")
+                    continue
                 transformed_midi_function = convert_note_event_intervals_to_midi_function(transformed_note_event_interval)
                 transformed_midi_contour = convert_midi_function_to_midi_contour(transformed_midi_function, time)
                 transformed_pitch_contour = convert_midi_contour_to_pitch_contour(transformed_midi_contour)
-                similarity = compute_similarity_metric(reference_contour, transformed_pitch_contour, metric='cosine', binarise=False)
+                similarity = compute_similarity_metric(reference_contour, transformed_pitch_contour, metric='cosine', binarise=True)
                 # negative_mse = compute_similarity_metric(reference_contour, transformed_pitch_contour, metric='negative-mse', binarise=False)
                 # Record the search parameters and similarity
                 search_record.append((vertical_displacement, horizontal_displacement, scaling_factor, similarity))
@@ -44,6 +51,9 @@ def random_search(reference_contour, time, midi_events, search_space, search_rec
         print(f"Processing iteration {i+1}/{n_iter} (Vertical: {vertical_displacement}, Horizontal: {horizontal_displacement}, Scaling factor: {scaling_factor})")
         
         transformed_note_event_interval = transform_note_event_interval(midi_events, vertical_displacement, horizontal_displacement, scaling_factor)
+        if has_negative_times(transformed_note_event_interval):
+                    print("Skipping due to negative times in transformed intervals")
+                    continue
         transformed_midi_function = convert_note_event_intervals_to_midi_function(transformed_note_event_interval)
         transformed_midi_contour = convert_midi_function_to_midi_contour(transformed_midi_function, time)
         transformed_pitch_contour = convert_midi_contour_to_pitch_contour(transformed_midi_contour)
