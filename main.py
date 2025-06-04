@@ -21,9 +21,9 @@ def main():
     note_event_intervals_ticks =  convert_midi_to_note_event_intervals(mid) ## in ticks 
     note_event_intervals_seconds = convert_tick_to_seconds(note_event_intervals_ticks, midi_tick_per_second, midi_bpm) ## in seconds
    
-    horizontal_range = np.arange(0, 2, 0.1)
+    horizontal_range = np.arange(0, 3, 0.1)
     # horizontal_range = np.random.normal(loc=0, scale=10, size=10)
-    midi_bpm_range = [midi_bpm + offset for offset in np.arange(-20, 20, 1)]
+    midi_bpm_range = [midi_bpm + offset for offset in np.arange(-20, 20, 0.5)]
     scaling_factor_range1 = np.array([midi_bpm/x for x in midi_bpm_range])
     scaling_factor_range2 = np.array([x/midi_bpm for x in midi_bpm_range])
     scaling_factor_range = np.unique(np.concatenate([scaling_factor_range1, scaling_factor_range2]))
