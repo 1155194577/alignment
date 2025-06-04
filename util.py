@@ -66,5 +66,15 @@ def convert_search_record_to_dataframe(search_record):
     Returns:
     pd.DataFrame: A DataFrame with columns for vertical displacement, horizontal displacement, scaling factor, and similarity.
     """
-    df = pd.DataFrame(search_record, columns=['vertical_displacement', 'horizontal_displacement', 'scaling_factor', 'similarity'])
+    df = pd.DataFrame(
+        search_record, 
+        columns=[
+            'vertical_displacement', 
+            'horizontal_displacement', 
+            'scaling_factor', 
+            'cosine_similarity', 
+            'binary_cosine_similarity', 
+            'negative_mse'
+        ]
+    )
     return df
