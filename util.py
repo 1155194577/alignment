@@ -13,6 +13,12 @@ def mean_squared_error(vec1, vec2):
         raise ValueError("Vectors must be of the same length")
     return np.mean((vec1 - vec2) ** 2)
 
+def mean_abs_error(vec1, vec2):
+    """Calculate the mean absolute error between two numpy arrays."""
+    if len(vec1) != len(vec2):
+        raise ValueError("Vectors must be of the same length")
+    return np.mean(abs(vec1 - vec2))
+
 def binarise_vector(vec, threshold=0.0):
     """
     Convert a numpy array to a binary array based on a threshold.
@@ -30,7 +36,7 @@ def dtw_distance(vec1, vec2):
     dtw_matrix[0, 1:] = float('inf')
     dtw_matrix[1:, 0] = float('inf')
     dtw_matrix[0, 0] = 0
-
+    print('g')
     for i in range(1, n + 1):
         for j in range(1, m + 1):
             cost = abs(vec1[i - 1] - vec2[j - 1])
@@ -52,8 +58,12 @@ def compute_similarity_metric(reference_contour, transformed_contour, metric='co
         transformed_contour = binarise_vector(transformed_contour)
     if metric == 'cosine':
         return cosine_similarity(reference_contour, transformed_contour)
-    elif metric == 'negative-mse':
-        return -mean_squared_error(reference_contour, transformed_contour)
+    elif metric == 'mse':
+        return mean_squared_error(reference_contour, transformed_contour)
+    elif metric == "dtw": 
+        return dtw_distance(reference_contour,transformed_contour)
+    elif metric == "mae":
+        return mean_abs_error(reference_contour,transformed_contour)
     else:
         raise ValueError(f"Unsupported metric: {metric}")
 
@@ -74,7 +84,10 @@ def convert_search_record_to_dataframe(search_record):
             'scaling_factor', 
             'cosine_similarity', 
             'binary_cosine_similarity', 
-            'negative_mse'
+            'mse',
+            "binary_mse",
+            "mae",
+            "binary_mae"
         ]
     )
     return df

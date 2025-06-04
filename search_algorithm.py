@@ -29,11 +29,13 @@ def brute_force_search(reference_contour, time, midi_events, search_space, searc
                 transformed_pitch_contour = convert_midi_contour_to_pitch_contour(transformed_midi_contour)
                 cosine_similarity = compute_similarity_metric(reference_contour, transformed_pitch_contour, metric='cosine', binarise=False)
                 binary_cosine_similarity = compute_similarity_metric(reference_contour, transformed_pitch_contour, metric='cosine', binarise=True)
-                negative_mse = compute_similarity_metric(reference_contour, transformed_pitch_contour, metric='negative-mse', binarise=False)
-                
+                mse = compute_similarity_metric(reference_contour, transformed_pitch_contour, metric='mse', binarise=False)
+                binary_mse = compute_similarity_metric(reference_contour,transformed_pitch_contour,metric='mse',binarise=True)
+                mae = compute_similarity_metric(reference_contour,transformed_pitch_contour,metric="mae",binarise=False)
+                binary_mae = compute_similarity_metric(reference_contour,transformed_pitch_contour,metric="mae",binarise=True)
                 similarity = cosine_similarity
                 # Record the search parameters and similarity
-                search_record.append((vertical_displacement, horizontal_displacement, scaling_factor, cosine_similarity,binary_cosine_similarity, negative_mse))
+                search_record.append((vertical_displacement, horizontal_displacement, scaling_factor, cosine_similarity,binary_cosine_similarity,mse, binary_mse,mae,binary_mae))
                 if similarity > best_similarity:
                     improvement = similarity - best_similarity
                     best_similarity = similarity
