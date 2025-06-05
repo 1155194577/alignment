@@ -45,7 +45,7 @@ def brute_force_search(reference_contour, time, midi_events, search_space, searc
                 if similarity > best_similarity:
                     improvement = similarity - best_similarity
                     best_similarity = similarity
-                    progress_bar.write(f"Best similarity updated! {best_similarity:.4f} improvement: {improvement:.4f} parameter ({vertical_displacement}, {horizontal_displacement}, {scaling_factor})")
+                    # progress_bar.write(f"Best similarity updated! {best_similarity:.4f} improvement: {improvement:.4f} parameter ({vertical_displacement}, {horizontal_displacement}, {scaling_factor})")
                     best_parameters = (vertical_displacement, horizontal_displacement, scaling_factor)
                     
     progress_bar.close()
