@@ -8,12 +8,14 @@ def main():
     # path_to_reference_contour = "./johnny_simple_midi/johnny_simplePitch.csv"
     # path_to_reference_contour = "./trimmed_24/vocals_tony.csv"  
     # path_to_reference_contour = "./john/ep_030_pitch.csv"  ## Load the reference contour from a CSV file
-    path_to_reference_contour = "./trimmed_60/trimmed_60_pitch.csv"
+    # path_to_reference_contour = "./trimmed_60/trimmed_60_pitch.csv"
+    path_to_reference_contour = "./trimmed_90/trimmed_90_pitch.csv"
     reference_contour, times = load_reference_contour(path_to_reference_contour) ## Load the reference contour from a CSV file
 
     # path_to_midi_file = "./johnny_simple_midi/Johnny_simpleMIDI_BPM80_Offset0.mid"
     # path_to_midi_file = "./john/ep_030.mid"  ## Load the MIDI file
-    path_to_midi_file = "./trimmed_60/ep_030.mid"  ## Load the MIDI file
+    # path_to_midi_file = "./trimmed_60/ep_030.mid"  ## Load the MIDI file
+    path_to_midi_file = "./trimmed_90/ep_030_trim90.mid"
     mid = mido.MidiFile(path_to_midi_file)
 
     midi_bpm = get_midi_bpm(mid) 
