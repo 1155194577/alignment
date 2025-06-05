@@ -1,6 +1,7 @@
 import numpy as np 
 import pandas as pd
 import mido
+from tqdm import tqdm
 from midi_processing import transform_note_event_interval,convert_note_event_intervals_to_midi_function,convert_midi_function_to_midi_contour,convert_midi_contour_to_pitch_contour
 from util import compute_similarity_metric
     
@@ -13,16 +14,21 @@ def brute_force_search(reference_contour, time, midi_events, search_space, searc
     best_similarity = float('-inf')
     best_parameters = None
     total = len(search_space['vertical']) * len(search_space['horizontal']) * len(search_space['scaling_factor'])
-    count = 0
+    progress_bar = tqdm(total=total, desc="Brute Force Search")
+    
     for vertical_displacement in search_space['vertical']:
         for horizontal_displacement in search_space['horizontal']:
-          for scaling_factor in search_space['scaling_factor']: 
-                count += 1
-                print(f"Processing {count}/{total} (Vertical: {vertical_displacement}, Horizontal: {horizontal_displacement}, Scaling factor: {scaling_factor})")
+            for scaling_factor in search_space['scaling_factor']: 
+                progress_bar.update(1)
+                progress_bar.set_postfix({
+                    'vertical': vertical_displacement,
+                    'horizontal': horizontal_displacement,
+                    'scaling': scaling_factor,
+                    'best_sim': f"{best_similarity:.4f}"
+                })
                 
                 transformed_note_event_interval = transform_note_event_interval(midi_events, vertical_displacement, horizontal_displacement, scaling_factor)
                 if has_negative_times(transformed_note_event_interval):
-                    print("Skipping due to negative times in transformed intervals")
                     continue
                 transformed_midi_function = convert_note_event_intervals_to_midi_function(transformed_note_event_interval)
                 transformed_midi_contour = convert_midi_function_to_midi_contour(transformed_midi_function, time)
@@ -39,26 +45,34 @@ def brute_force_search(reference_contour, time, midi_events, search_space, searc
                 if similarity > best_similarity:
                     improvement = similarity - best_similarity
                     best_similarity = similarity
-                    print("Best similarity updated!", best_similarity, "improvement:", improvement, "parameter", (vertical_displacement, horizontal_displacement, scaling_factor))
+                    progress_bar.write(f"Best similarity updated! {best_similarity:.4f} improvement: {improvement:.4f} parameter ({vertical_displacement}, {horizontal_displacement}, {scaling_factor})")
                     best_parameters = (vertical_displacement, horizontal_displacement, scaling_factor)
+                    
+    progress_bar.close()
     return best_parameters, best_similarity
 
 def random_search(reference_contour, time, midi_events, search_space, search_record, n_iter=100):
     best_similarity = float('-inf')
     best_parameters = None
     
+    progress_bar = tqdm(total=n_iter, desc="Random Search")
     for i in range(n_iter):
         # Randomly select parameters from search space
         vertical_displacement = np.random.choice(search_space['vertical'])
         horizontal_displacement = np.random.choice(search_space['horizontal'])
         scaling_factor = np.random.choice(search_space['scaling_factor'])
         
-        print(f"Processing iteration {i+1}/{n_iter} (Vertical: {vertical_displacement}, Horizontal: {horizontal_displacement}, Scaling factor: {scaling_factor})")
+        progress_bar.update(1)
+        progress_bar.set_postfix({
+            'vertical': vertical_displacement,
+            'horizontal': horizontal_displacement,
+            'scaling': scaling_factor,
+            'best_sim': f"{best_similarity:.4f}"
+        })
         
         transformed_note_event_interval = transform_note_event_interval(midi_events, vertical_displacement, horizontal_displacement, scaling_factor)
         if has_negative_times(transformed_note_event_interval):
-                    print("Skipping due to negative times in transformed intervals")
-                    continue
+            continue
         transformed_midi_function = convert_note_event_intervals_to_midi_function(transformed_note_event_interval)
         transformed_midi_contour = convert_midi_function_to_midi_contour(transformed_midi_function, time)
         transformed_pitch_contour = convert_midi_contour_to_pitch_contour(transformed_midi_contour)
@@ -68,23 +82,9 @@ def random_search(reference_contour, time, midi_events, search_space, search_rec
         if similarity > best_similarity:
             improvement = similarity - best_similarity
             best_similarity = similarity
-            print("Best similarity updated!", best_similarity, "improvement:", improvement, "parameter", (vertical_displacement, horizontal_displacement, scaling_factor))
+            progress_bar.write(f"Best similarity updated! {best_similarity:.4f} improvement: {improvement:.4f} parameter ({vertical_displacement}, {horizontal_displacement}, {scaling_factor})")
             best_parameters = (vertical_displacement, horizontal_displacement, scaling_factor)
-    
-    return best_parameters, best_similarity
-
-def hybrid_search(reference_contour, time, midi_events, search_space, search_record, n_random=100, region_fraction=0.2):
-    """
-    Hybrid search combining random exploration and local brute-force optimization
-    
-    Parameters:
-    n_random: Number of random samples in phase 1
-    region_fraction: Fraction of parameter range to search around best point (±value)
-    """
-    # Phase 1: Random search to find promising region
-    best_params, best_sim = random_search(reference_contour, time, midi_events, 
-                                         search_space, search_record, n_random)
-    
+            
     if best_params is None:
         return None, best_sim
     
