@@ -13,6 +13,7 @@ from audio_processing import load_reference_contour, trim_contour_data
 import mido
 from util import convert_search_record_to_dataframe
 import numpy as np
+import os
 
 # Configuration constants
 TRIM_THRESHOLD = 0.1
@@ -20,6 +21,9 @@ TRIM_THRESHOLD = 0.1
 # Directory paths
 INPUT_DIRECTORY = "./input"
 OUTPUT_DIRECTORY = "./output"
+
+# Create output directory if it doesn't exist
+os.makedirs(OUTPUT_DIRECTORY, exist_ok=True)
 
 # File names
 REFERENCE_PITCH_FILE = "ep_030_pitch.csv"
