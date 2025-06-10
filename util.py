@@ -46,6 +46,14 @@ def dtw_distance(vec1, vec2):
 
     return dtw_matrix[n, m]
 
+def mean_difference(vec1, vec2):
+        """
+        Compute the absolute difference between the means of two numpy arrays.
+        """
+        mean1 = np.mean(vec1)
+        mean2 = np.mean(vec2)
+        return abs(mean1 - mean2)
+
 def compute_similarity_metric(reference_contour, transformed_contour, metric='cosine', binarise=False):
     """
     Compute similarity metric between two contours.
@@ -64,6 +72,9 @@ def compute_similarity_metric(reference_contour, transformed_contour, metric='co
         return dtw_distance(reference_contour,transformed_contour)
     elif metric == "mae":
         return mean_abs_error(reference_contour,transformed_contour)
+    elif metric == "mean_difference":
+        return mean_difference(reference_contour, transformed_contour)
+
     else:
         raise ValueError(f"Unsupported metric: {metric}")
 
@@ -87,7 +98,8 @@ def convert_search_record_to_dataframe(search_record):
             'mse',
             "binary_mse",
             "mae",
-            "binary_mae"
+            "binary_mae",
+            "mean_difference"
         ]
     )
     return df

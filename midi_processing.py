@@ -240,7 +240,7 @@ def transform_note_event_interval(note_events, vertical_displacement, horizontal
         transformed_note_event_intervals = []
         for event in note_events:
             new_event = event.copy()
-            new_event['note'] = event['note'] + vertical_displacement
+            new_event['note'] = int(round(event['note'] + vertical_displacement))
             new_event['start_time'] = (event['start_time'] * scaling_factor) + horizontal_displacement
             new_event['end_time'] = (event['end_time'] * scaling_factor) + horizontal_displacement
             transformed_note_event_intervals.append(new_event)
