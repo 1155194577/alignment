@@ -1,33 +1,40 @@
+from typing import Tuple
 import pandas as pd
 import numpy as np
 
-def load_reference_contour(file_path: str) -> tuple[np.ndarray, np.ndarray]:
+def load_reference_contour(
+    file_path: str
+) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Load the reference pitch contour and corresponding time values from a CSV file.
-
+    Load reference pitch contour data from CSV file.
+    
     Args:
-        file_path (str): Path to the CSV file. The file must contain 'time' and 'value' columns.
-
+        file_path: Path to CSV file containing time and value columns
+        
     Returns:
-        tuple[np.ndarray, np.ndarray]: (pitches, times)
+        Tuple of (pitch_values, time_stamps) as numpy arrays
     """
     df = pd.read_csv(file_path, usecols=['time', 'value'])
-    times = df['time'].to_numpy(dtype=np.float64)  # Use seconds as is
-    pitches = df['value'].to_numpy(dtype=np.float64)
-    return pitches, times
+    time_stamps = df['time'].to_numpy(dtype=np.float64)  # Time values in seconds
+    pitch_values = df['value'].to_numpy(dtype=np.float64)  # Pitch values
+    return pitch_values, time_stamps
 
 
-def trim_times_below_threshold(times: np.ndarray, pitches: np.ndarray, threshold: float) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Trim the times and pitches arrays to only include entries where times are below the given threshold.
-
-        Args:
-            times (np.ndarray): Array of time values (ascending).
-            pitches (np.ndarray): Array of pitch values.
-            threshold (float): The time threshold.
-
-        Returns:
-            tuple[np.ndarray, np.ndarray]: Trimmed (pitches, times) arrays.
-        """
-        mask = times < threshold
-        return pitches[mask], times[mask]
+def trim_contour_data(
+    time_stamps: np.ndarray,
+    pitch_values: np.ndarray,
+    duration_threshold: float
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Trim pitch contour data to specified duration.
+    
+    Args:
+        time_stamps: Array of time values (ascending)
+        pitch_values: Array of pitch values
+        duration_threshold: Maximum duration to keep
+        
+    Returns:
+        Tuple of (trimmed_pitch_values, trimmed_time_stamps)
+    """
+    mask = time_stamps < duration_threshold
+    return pitch_values[mask], time_stamps[mask]

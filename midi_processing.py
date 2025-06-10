@@ -1,31 +1,48 @@
+from typing import List, Dict
 import mido
 import numpy as np
-def midi_to_relative_events(mid):
+
+def midi_to_relative_events(
+    midi_file: mido.MidiFile
+) -> List[Dict]:
     """
-    Converts MIDI tracks into relative time events
-    using a pre-loaded MidiFile object
+    Convert MIDI tracks into relative time events.
+    
+    Args:
+        midi_file: Loaded MidiFile object containing MIDI tracks
+        
+    Returns:
+        List of MIDI events with relative timing
     """
     events = []
-    for track in mid.tracks:
-        abs_time = 0
-        for msg in track:
-            abs_time += msg.time
-            if msg.type in ['note_on', 'note_off']:
+    for track in midi_file.tracks:
+        absolute_time = 0
+        for message in track:
+            absolute_time += message.time
+            if message.type in ['note_on', 'note_off']:
                 events.append({
-                    'type': msg.type,
-                    'note': msg.note,
-                    'velocity': msg.velocity,
-                    'time': msg.time  # relative delta time
+                    'type': message.type,
+                    'note': message.note,
+                    'velocity': message.velocity,
+                    'time': message.time  # relative delta time
                 })
     return events
 
-def convert_relative_events_to_absolute(events):
+def convert_relative_to_absolute_events(
+    relative_events: List[Dict]
+) -> List[Dict]:
     """
-    Converts relative MIDI events to absolute time.
+    Convert relative MIDI events to absolute timing.
+    
+    Args:
+        relative_events: List of MIDI events with relative timing
+        
+    Returns:
+        List of MIDI events with absolute timing
     """
     absolute_events = []
     current_time = 0
-    for event in events:
+    for event in relative_events:
         current_time += event['time']
         absolute_events.append({
             'type': event['type'],
@@ -35,14 +52,21 @@ def convert_relative_events_to_absolute(events):
         })
     return absolute_events
 
-def convert_absolute_events_to_note_event_intervals(events):
+def convert_absolute_to_note_intervals(
+    absolute_events: List[Dict]
+) -> List[Dict]:
     """
-    Converts absolute MIDI events to note event intervals
-    using a dictionary for active notes.
+    Convert absolute MIDI events to note event intervals.
+    
+    Args:
+        absolute_events: List of MIDI events with absolute timing
+        
+    Returns:
+        List of note event intervals with start and end times
     """
-    note_events = []
+    note_intervals = []
     active_notes = {}
-    for event in events:
+    for event in absolute_events:
         if event['type'] == 'note_on' and event['velocity'] > 0:
             active_notes[event['note']] = {
                 'start_time': event['time'],
@@ -53,13 +77,24 @@ def convert_absolute_events_to_note_event_intervals(events):
             if event['note'] in active_notes:
                 note_event = active_notes.pop(event['note'])
                 note_event['end_time'] = event['time']
-                note_events.append(note_event)
-    return note_events
+                note_intervals.append(note_event)
+    return note_intervals
 
-def convert_tick_to_seconds(events, ticks_per_beat, bpm):
+def convert_ticks_to_seconds(
+    events: List[Dict],
+    ticks_per_beat: int,
+    bpm: float
+) -> List[Dict]:
     """
-    Converts MIDI events from ticks to seconds
-    using mido's built-in tick2second.
+    Convert MIDI events from ticks to seconds.
+    
+    Args:
+        events: List of MIDI events
+        ticks_per_beat: MIDI ticks per beat
+        bpm: Beats per minute
+        
+    Returns:
+        List of events with timing in seconds
     """
     tempo = mido.bpm2tempo(bpm)
     for event in events:
@@ -67,30 +102,54 @@ def convert_tick_to_seconds(events, ticks_per_beat, bpm):
         event["end_time"] = mido.tick2second(event['end_time'], ticks_per_beat, tempo)
     return events
 
-def convert_note_event_intervals_to_midi_function(events):
+def create_midi_function(
+    note_intervals: List[Dict]
+) -> callable:
     """
-    Converts note event intervals to a MIDI function
-    that returns active notes at a given time.
+    Create a function that returns active notes at a given time.
+    
+    Args:
+        note_intervals: List of note event intervals
+        
+    Returns:
+        Function that takes time and returns list of active notes
     """
-    return lambda t: [event['note'] for event in events if event['start_time'] <= t <= event['end_time']]
+    return lambda t: [event['note'] for event in note_intervals if event['start_time'] <= t <= event['end_time']]
 
-def convert_midi_function_to_midi_contour(midi_function, times):
+def create_midi_contour(
+    midi_function: callable,
+    time_stamps: np.ndarray
+) -> np.ndarray:
     """
-    Given a midi_function and an iterable of time values,
-    returns a list of active notes for each time value.
+    Generate MIDI contour from MIDI function and time values.
+    
+    Args:
+        midi_function: Function returning active notes at given time
+        time_stamps: Array of time values
+        
+    Returns:
+        Array of MIDI note numbers (0 for no active note)
     """
-    midi_contour = [] 
-    for t in times: 
-        note_number = midi_function(t) 
-        if len(note_number) > 0: 
-            midi_contour.append(note_number[0]) 
-        else: 
-            midi_contour.append(0) 
+    midi_contour = []
+    for t in time_stamps:
+        note_numbers = midi_function(t)
+        if len(note_numbers) > 0:
+            midi_contour.append(note_numbers[0])
+        else:
+            midi_contour.append(0)
     return np.array(midi_contour)
 
-def convert_midi_contour_to_pitch_contour(midi_contour):
+def convert_midi_to_pitch(
+    midi_contour: np.ndarray
+) -> np.ndarray:
     """
-    Converts a MIDI contour (numpy array) to a pitch contour (numpy array).
+    Convert MIDI contour to pitch contour.
+    
+    Args:
+        midi_contour: Array of MIDI note numbers
+        
+    Returns:
+        Array of pitch values in Hz
     """
     midi_contour = np.asarray(midi_contour)
     pitch_contour = np.zeros_like(midi_contour, dtype=float)
@@ -98,107 +157,153 @@ def convert_midi_contour_to_pitch_contour(midi_contour):
     pitch_contour[mask] = 440.0 * (2 ** ((midi_contour[mask] - 69) / 12.0))
     return pitch_contour
 
-def convert_pitch_contour_to_midi_contour(pitch_contour):
+def convert_pitch_to_midi(
+    pitch_contour: np.ndarray
+) -> np.ndarray:
     """
-    Converts a pitch contour to a MIDI contour.
-    Inverse of convert_midi_contour_to_pitch_contour.
+    Convert pitch contour to MIDI contour.
+    
+    Args:
+        pitch_contour: Array of pitch values in Hz
+        
+    Returns:
+        Array of MIDI note numbers
     """
-    pitch_to_note = lambda freq: 69 + 12 * np.log2(freq / 440.0)
-    return np.array([round(pitch_to_note(freq)) if freq > 0 else 0 for freq in pitch_contour])
+    pitch_contour = np.asarray(pitch_contour)
+    midi_contour = np.zeros_like(pitch_contour, dtype=int)
+    mask = pitch_contour > 0
+    midi_contour[mask] = np.round(69 + 12 * np.log2(pitch_contour[mask] / 440.0))
+    return midi_contour
 
-def get_midi_bpm(mid):
+def get_midi_tempo(
+    midi_file: mido.MidiFile
+) -> float:
     """
-    Returns the tempo (BPM) of the first tempo event
-    in the MidiFile object.
-    If no tempo event found, returns 120 BPM.
+    Get the tempo (BPM) from the MIDI file.
+    
+    Args:
+        midi_file: Loaded MidiFile object
+        
+    Returns:
+        Tempo in BPM (120 if no tempo event found)
     """
-    for track in mid.tracks:
-        for msg in track:
-            if msg.type == 'set_tempo':
-                return mido.tempo2bpm(msg.tempo)
-    return 120
+    for message in midi_file:
+        if message.type == 'set_tempo':
+            return mido.tempo2bpm(message.tempo)
+    return 120.0
 
-def get_midi_tick_per_second(mid):
+def get_midi_ticks_per_second(
+    midi_file: mido.MidiFile
+) -> int:
     """
-    Returns the ticks per beat of the MidiFile object.
+    Get the ticks per beat from the MIDI file.
+    
+    Args:
+        midi_file: Loaded MidiFile object
+        
+    Returns:
+        Ticks per beat
     """
-    return mid.ticks_per_beat
+    return midi_file.ticks_per_beat
 
-def relative_events_to_midi(events, bpm, ticks_per_second):
+def create_midi_from_relative_events(
+    relative_events: List[Dict],
+    bpm: float,
+    ticks_per_second: int
+) -> mido.MidiFile:
     """
-    Converts relative events back to a MIDI file.
-    Inverse of midi_to_relative_events.
-    Accepts ticks_per_second instead of ticks_per_beat.
+    Create MIDI file from relative events.
+    
+    Args:
+        relative_events: List of MIDI events with relative timing
+        bpm: Tempo in BPM
+        ticks_per_second: MIDI ticks per second
+        
+    Returns:
+        MidiFile object
     """
-    # MIDI standard uses ticks_per_beat, so we need to convert ticks_per_second to ticks_per_beat
-    # ticks_per_beat = ticks_per_second * 60 / bpm
-    ticks_per_beat = int(round(ticks_per_second * 60 / bpm))
-    mid = mido.MidiFile(ticks_per_beat=ticks_per_beat)
+    midi_file = mido.MidiFile()
     track = mido.MidiTrack()
-    mid.tracks.append(track)
+    midi_file.tracks.append(track)
+    track.append(mido.MetaMessage('set_tempo', tempo=mido.bpm2tempo(bpm)))
     
-    # Add tempo meta message at the start
-    tempo = mido.bpm2tempo(bpm)
-    track.append(mido.MetaMessage('set_tempo', tempo=tempo, time=0))
+    for event in relative_events:
+        track.append(mido.Message(
+            event['type'],
+            note=event['note'],
+            velocity=event['velocity'],
+            time=event['time']
+        ))
     
-    for event in events:
-        msg = mido.Message(event['type'], note=event['note'], 
-                          velocity=event['velocity'], time=event['time'])
-        track.append(msg)
-    
-    return mid
+    return midi_file
 
-def convert_absolute_events_to_relative(absolute_events):
+def convert_absolute_to_relative_events(
+    absolute_events: List[Dict]
+) -> List[Dict]:
     """
-    Converts absolute events to relative events.
-    Inverse of convert_relative_events_to_absolute.
+    Convert absolute events to relative events.
+    
+    Args:
+        absolute_events: List of MIDI events with absolute timing
+        
+    Returns:
+        List of MIDI events with relative timing
     """
     relative_events = []
-    prev_time = 0
-    
+    current_time = 0
     for event in absolute_events:
-        relative_time = event['time'] - prev_time
         relative_events.append({
             'type': event['type'],
             'note': event['note'],
             'velocity': event['velocity'],
-            'time': relative_time
+            'time': event['time'] - current_time
         })
-        prev_time = event['time']
-    
+        current_time = event['time']
     return relative_events
 
-def convert_note_event_intervals_to_absolute_events(note_events):
+def convert_note_intervals_to_absolute_events(
+    note_intervals: List[Dict]
+) -> List[Dict]:
     """
-    Converts note event intervals back to absolute events.
-    Inverse of convert_absolute_events_to_note_event_intervals.
+    Convert note event intervals back to absolute events.
+    
+    Args:
+        note_intervals: List of note event intervals
+        
+    Returns:
+        List of MIDI events with absolute timing
     """
     absolute_events = []
-    
-    for note in note_events:
-        # Create note_on event
+    for event in note_intervals:
         absolute_events.append({
             'type': 'note_on',
-            'note': note['note'],
-            'velocity': note['velocity'],
-            'time': note['start_time']
+            'note': event['note'],
+            'velocity': event['velocity'],
+            'time': event['start_time']
         })
-        # Create note_off event
         absolute_events.append({
             'type': 'note_off',
-            'note': note['note'],
+            'note': event['note'],
             'velocity': 0,
-            'time': note['end_time']
+            'time': event['end_time']
         })
-    
-    # Sort events by time
-    absolute_events.sort(key=lambda x: x['time'])
     return absolute_events
 
-def convert_seconds_to_tick(events, ticks_per_beat, bpm):
+def convert_seconds_to_ticks(
+    events: List[Dict],
+    ticks_per_beat: int,
+    bpm: float
+) -> List[Dict]:
     """
-    Converts note event intervals from seconds back to ticks.
-    Inverse of convert_tick_to_seconds.
+    Convert MIDI events from seconds to ticks.
+    
+    Args:
+        events: List of MIDI events with timing in seconds
+        ticks_per_beat: MIDI ticks per beat
+        bpm: Tempo in BPM
+        
+    Returns:
+        List of events with timing in ticks
     """
     tempo = mido.bpm2tempo(bpm)
     for event in events:
@@ -206,70 +311,127 @@ def convert_seconds_to_tick(events, ticks_per_beat, bpm):
         event["end_time"] = mido.second2tick(event['end_time'], ticks_per_beat, tempo)
     return events
 
-## public
-def convert_midi_to_note_event_intervals(mid):
+def convert_midi_to_note_intervals(
+    midi_file: mido.MidiFile
+) -> List[Dict]:
     """
-    Converts a MIDI file to note event intervals.
-    """
-    relative_events = midi_to_relative_events(mid)
-    absolute_events = convert_relative_events_to_absolute(relative_events)
-    note_intervals = convert_absolute_events_to_note_event_intervals(absolute_events)
+    Convert MIDI file to note event intervals.
     
-    return note_intervals
-
-def convert_midi_to_midi_contour(mid, times):
+    Args:
+        midi_file: Loaded MidiFile object
+        
+    Returns:
+        List of note event intervals
     """
-    Converts a MIDI file to a MIDI contour.
+    relative_events = midi_to_relative_events(midi_file)
+    absolute_events = convert_relative_to_absolute_events(relative_events)
+    return convert_absolute_to_note_intervals(absolute_events)
+
+def convert_midi_to_contour(
+    midi_file: mido.MidiFile,
+    time_stamps: np.ndarray
+) -> np.ndarray:
     """
-    note_intervals = convert_midi_to_note_event_intervals(mid)
-    note_intervals_with_seconds = convert_tick_to_seconds(note_intervals, get_midi_tick_per_second(mid), get_midi_bpm(mid))
-    midi_function = convert_note_event_intervals_to_midi_function(note_intervals_with_seconds)
-    return convert_midi_function_to_midi_contour(midi_function, times) 
+    Convert MIDI file to MIDI contour.
+    
+    Args:
+        midi_file: Loaded MidiFile object
+        time_stamps: Array of time values
+        
+    Returns:
+        Array of MIDI note numbers
+    """
+    note_intervals = convert_midi_to_note_intervals(midi_file)
+    midi_function = create_midi_function(note_intervals)
+    return create_midi_contour(midi_function, time_stamps)
 
-def transform_note_event_interval(note_events, vertical_displacement, horizontal_displacement, scaling_factor):
-        """
-        Apply pitch shift, timing shift, and tempo scaling to note event intervals.
-        Args:
-            note_events (list of dict): Each dict has 'start_time', 'end_time', 'note', 'velocity'.
-            vertical_displacement (float): Semitone shift for pitch.
-            horizontal_displacement (float): Time shift in milliseconds or ticks.
-            scaling_factor (float): Factor to scale timing (tempo adjustment).
-        Returns:
-            list of dict: Transformed note event intervals.
-        """
-        transformed_note_event_intervals = []
-        for event in note_events:
-            new_event = event.copy()
-            new_event['note'] = int(round(event['note'] + vertical_displacement))
-            new_event['start_time'] = (event['start_time'] * scaling_factor) + horizontal_displacement
-            new_event['end_time'] = (event['end_time'] * scaling_factor) + horizontal_displacement
-            transformed_note_event_intervals.append(new_event)
-        return transformed_note_event_intervals
+def transform_note_intervals(
+    note_intervals: List[Dict],
+    vertical_shift: float,
+    horizontal_shift: float,
+    scaling_factor: float
+) -> List[Dict]:
+    """
+    Apply pitch shift, timing shift, and tempo scaling to note event intervals.
+    
+    Args:
+        note_intervals: List of note event intervals
+        vertical_shift: Pitch shift in semitones
+        horizontal_shift: Time shift in seconds
+        scaling_factor: Factor to scale timing (tempo adjustment)
+        
+    Returns:
+        List of transformed note event intervals
+    """
+    transformed_events = []
+    for event in note_intervals:
+        # Apply pitch shift
+        transformed_note = event['note'] + vertical_shift
+        if transformed_note < 0:
+            transformed_note = 0
+        elif transformed_note > 127:
+            transformed_note = 127
+        
+        # Apply timing shifts
+        transformed_start = event['start_time'] * scaling_factor + horizontal_shift
+        transformed_end = event['end_time'] * scaling_factor + horizontal_shift
+        
+        # Ensure valid timing
+        if transformed_start < 0:
+            transformed_start = 0
+        if transformed_end < 0:
+            transformed_end = 0
+        
+        transformed_events.append({
+            'note': int(transformed_note),
+            'velocity': event['velocity'],
+            'start_time': transformed_start,
+            'end_time': transformed_end
+        })
+    return transformed_events
 
-def convert_note_event_intervals_to_mid(note_events, bpm=120, ticks_per_beat=480):
-            """
-            Converts note event intervals to a MidiFile object.
-            Args:
-                note_events (list of dict): Each dict has 'start_time', 'end_time', 'note', 'velocity'.
-                bpm (float): Tempo in beats per minute.
-                ticks_per_beat (int): MIDI ticks per beat.
-            Returns:
-                mido.MidiFile: The resulting MIDI file.
-            """
-            # Convert note event intervals to absolute events
-            absolute_events = convert_note_event_intervals_to_absolute_events(note_events)
-            # Convert absolute events to relative events
-            relative_events = convert_absolute_events_to_relative(absolute_events)
-            # Create MidiFile
-            mid = mido.MidiFile(ticks_per_beat=ticks_per_beat)
-            track = mido.MidiTrack()
-            mid.tracks.append(track)
-            # Add tempo meta message at the start
-            tempo = mido.bpm2tempo(bpm)
-            track.append(mido.MetaMessage('set_tempo', tempo=tempo, time=0))
-            # Add note events
-            for event in relative_events:
-                msg = mido.Message(event['type'], note=event['note'],
-                                   velocity=event['velocity'], time=event['time'])
-                track.append(msg)
-            return mid
+def create_midi_from_note_intervals(
+    note_intervals: List[Dict],
+    bpm: float = 120,
+    ticks_per_beat: int = 480
+) -> mido.MidiFile:
+    """
+    Create MIDI file from note event intervals.
+    
+    Args:
+        note_intervals: List of note event intervals
+        bpm: Tempo in BPM
+        ticks_per_beat: MIDI ticks per beat
+        
+    Returns:
+        MidiFile object
+    """
+    midi_file = mido.MidiFile()
+    track = mido.MidiTrack()
+    midi_file.tracks.append(track)
+    
+    # Add tempo meta message
+    track.append(mido.MetaMessage('set_tempo', tempo=mido.bpm2tempo(bpm)))
+    
+    # Sort events by start time
+    note_intervals.sort(key=lambda x: x['start_time'])
+    
+    # Add note_on and note_off messages
+    for event in note_intervals:
+        # Add note_on message
+        track.append(mido.Message(
+            'note_on',
+            note=event['note'],
+            velocity=event['velocity'],
+            time=mido.second2tick(event['start_time'], ticks_per_beat, mido.bpm2tempo(bpm))
+        ))
+        
+        # Add note_off message
+        track.append(mido.Message(
+            'note_off',
+            note=event['note'],
+            velocity=0,
+            time=mido.second2tick(event['end_time'] - event['start_time'], ticks_per_beat, mido.bpm2tempo(bpm))
+        ))
+    
+    return midi_file
