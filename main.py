@@ -16,7 +16,7 @@ import numpy as np
 import os
 
 # Configuration constants
-TRIM_THRESHOLD = 0.1
+TRIM_THRESHOLD = 0.3
 
 # Directory paths
 INPUT_DIRECTORY = "./input"
@@ -26,8 +26,8 @@ OUTPUT_DIRECTORY = "./output"
 os.makedirs(OUTPUT_DIRECTORY, exist_ok=True)
 
 # File names
-REFERENCE_PITCH_FILE = "ep_030_pitch.csv"
-MIDI_INPUT_FILE = "ep_030.mid"
+REFERENCE_PITCH_FILE = "fight_song/fight_song.csv"
+MIDI_INPUT_FILE = "fight_song/fight_song.mid"
 
 # First stage search parameters (vertical alignment)
 VERTICAL_SEARCH_CONFIG = {
@@ -48,7 +48,7 @@ HORIZONTAL_BPM_SEARCH_CONFIG = {
     "vertical_max": 0,
     "vertical_step": 1,
     "horizontal_min": 0,      # Minimum time shift in seconds
-    "horizontal_max": 1,      # Maximum time shift in seconds
+    "horizontal_max": 2,      # Maximum time shift in seconds
     "horizontal_step": 0.1,   # Time shift step size
     "bpm_offset_min": -10,    # Minimum BPM offset
     "bpm_offset_max": 10,     # Maximum BPM offset
@@ -378,10 +378,10 @@ def main():
     )
     
     print("\nAlignment process completed!")
-    print(f"Final optimized parameters: {final_params}")
+    print(f"Final optimized parameters: {final_params[0],intermediate_params[1],intermediate_params[2]}")
     print("- Vertical displacement: {:.2f} semitones".format(final_params[0]))
-    print("- Horizontal displacement: {:.2f} seconds".format(final_params[1]))
-    print("- Scaling factor: {:.4f}".format(final_params[2]))
+    print("- Horizontal displacement: {:.2f} seconds".format(intermediate_params[1]))
+    print("- Scaling factor: {:.4f}".format(intermediate_params[2]))
 
 if __name__ == "__main__":
     main()
