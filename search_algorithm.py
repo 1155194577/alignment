@@ -19,7 +19,8 @@ def brute_force_search(
     search_record: List[Tuple],
     metric: str = 'cosine',
     binarize: bool = False,
-    maximize: bool = True
+    maximize: bool = True,
+    trim_threshold: float = 1.0
 ) -> Tuple[Tuple[float, float, float], float]:
     """
     Perform brute force search to find optimal alignment parameters.
@@ -33,6 +34,7 @@ def brute_force_search(
         metric: Similarity metric to optimize
         binarize: Whether to binarize the data
         maximize: Whether to maximize the similarity metric
+        trim_threshold: Fraction of total duration used for trimming (0-1)
         
     Returns:
         Tuple of (best_parameters, best_similarity)
@@ -56,7 +58,8 @@ def brute_force_search(
                     'horizontal': horizontal_shift,
                     'scaling': scaling_factor,
                     'best_sim': f"{best_similarity:.4f}",
-                    'metric': f"{metric}{'_bin' if binarize else ''}"
+                    'metric': f"{metric}{'_bin' if binarize else ''}",
+                    'trim': trim_threshold
                 })
                 
                 # Apply transformations
@@ -125,16 +128,21 @@ def brute_force_search(
                 
                 # Record search results
                 search_record.append((
-                    vertical_shift, horizontal_shift, scaling_factor,
-                    metrics['cosine']['normal'], metrics['cosine']['binary'],
-                    metrics['mse']['normal'], metrics['mse']['binary'],
-                    metrics['mae']['normal'], metrics['mae']['binary'],
-                    metrics['mean_difference']
+                    vertical_shift, 
+                    horizontal_shift, 
+                    scaling_factor,
+                    metrics['cosine']['normal'], 
+                    metrics['cosine']['binary'],
+                    metrics['mse']['normal'], 
+                    metrics['mse']['binary'],
+                    metrics['mae']['normal'], 
+                    metrics['mae']['binary'],
+                    metrics['mean_difference'],
+                    trim_threshold  
                 ))
                 
                 # Update best parameters if new best found
                 if (maximize and similarity > best_similarity) or (not maximize and similarity < best_similarity):
-                    # improvement = similarity - best_similarity if maximize else best_similarity - similarity
                     best_similarity = similarity
                     best_parameters = (vertical_shift, horizontal_shift, scaling_factor)
                     

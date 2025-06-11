@@ -16,7 +16,7 @@ import numpy as np
 import os
 
 # Configuration constants
-TRIM_THRESHOLD = 0.3
+TRIM_THRESHOLD = 0.1
 
 # Directory paths
 INPUT_DIRECTORY = "./input"
@@ -168,7 +168,8 @@ def run_search(
     search_space: Dict[str, np.ndarray],
     similarity_metric: str = "cosine",
     binarize: bool = False,
-    maximize: bool = True
+    maximize: bool = True,
+    trim_threshold: float = 1.0
 ) -> Tuple[Tuple[float, float, float], float, List]:
     """
     Execute the search algorithm to find optimal alignment parameters.
@@ -182,6 +183,7 @@ def run_search(
         similarity_metric: Metric to optimize (cosine or mae)
         binarize: Whether to binarize the data
         maximize: Whether to maximize the similarity metric
+        trim_threshold: Fraction of total duration used for trimming (0-1)
         
     Returns:
         Tuple of (best_parameters, best_similarity_score, search_record)
@@ -197,7 +199,8 @@ def run_search(
             search_record,
             metric=similarity_metric,
             binarize=binarize,
-            maximize=maximize
+            maximize=maximize,
+            trim_threshold=trim_threshold
         )
     else:  # Default to random search
         best_params, best_similarity = random_search(
@@ -251,7 +254,8 @@ def find_best_parameters(
     note_events: List[Dict],
     time_stamps: np.ndarray,
     similarity_metric: str = "cosine",
-    binarize: bool = False
+    binarize: bool = False,
+    trim_threshold: float = 1.0
 ) -> Tuple[Tuple[float, float, float], List]:
     """
     Find the best alignment parameters using brute force search.
@@ -263,6 +267,7 @@ def find_best_parameters(
         time_stamps: Array of time stamps
         similarity_metric: Metric to optimize
         binarize: Whether to binarize the data
+        trim_threshold: Fraction of total duration used for trimming (0-1)
         
     Returns:
         Tuple of (best_parameters, search_record)
@@ -279,7 +284,8 @@ def find_best_parameters(
         search_space,
         similarity_metric=similarity_metric,
         binarize=binarize,
-        maximize=maximize
+        maximize=maximize,
+        trim_threshold=trim_threshold
     )
     
     # Print results
@@ -329,7 +335,8 @@ def main():
         note_events,
         time_stamps,
         similarity_metric=FIRST_STAGE_METRIC,
-        binarize=FIRST_STAGE_BINARIZE
+        binarize=FIRST_STAGE_BINARIZE,
+        trim_threshold=TRIM_THRESHOLD
     )
     
     # Save intermediate results
@@ -360,7 +367,8 @@ def main():
         transformed_note_events,
         time_stamps,
         similarity_metric=SECOND_STAGE_METRIC,
-        binarize=SECOND_STAGE_BINARIZE
+        binarize=SECOND_STAGE_BINARIZE,
+        trim_threshold=TRIM_THRESHOLD
     )
     
     # Save final results

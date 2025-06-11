@@ -195,7 +195,8 @@ def convert_search_record_to_dataframe(
         'binary_mse',
         'mae',
         'binary_mae',
-        'mean_difference'
+        'mean_difference',
+        'trim_threshold'  # Add trim threshold column
     ]
     
     return pd.DataFrame(search_record, columns=column_names)
